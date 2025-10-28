@@ -1,0 +1,389 @@
+\documentclass[12pt]{article}
+\usepackage[T1]{fontenc}
+
+\usepackage{natbib}
+
+\usepackage{etoolbox}
+\usepackage{lmodern} \normalfont %to load T1lmr.fd
+\usepackage{anyfontsize}
+\DeclareFontShape{T1}{lmr}{bx}{sc} { <-> ssub * cmr/bx/sc }{}
+\DeclareFontShape{T1}{lmr}{m}{scit}{ <-> ssub * cmr/m/sc }{}
+\DeclareFontShape{T1}{lmr}{bx}{scit}{ <-> ssub * cmr/bx/sc }{}
+
+% \include{preamble}
+
+\usepackage{xparse}
+\usepackage{xcolor}
+\usepackage{soul}
+\usepackage{xspace}
+
+\usepackage{amssymb,amsmath}
+
+\newcommand{\plotwidth}{6in}
+\newcommand{\plotheight}{3in}
+\usepackage{graphicx}
+
+
+%%% Macros %%%
+
+% Numbers
+\newcommand{\Nats}{\mathbb{N}}
+\newcommand{\Reals}{\mathbb{R}}
+
+% Highlighting
+\newcommand{\mb}[1]{\boldsymbol{#1}}
+
+% Linear algebra
+\newcommand{\Tr}{^{\textrm{T}}}
+
+% Math
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+
+% Parameters
+\newcommand{\params}{\mb{\theta}}
+
+% Data
+\newcommand{\response}{\mb{y}}
+
+%%% END Macros %%%
+
+\makeatletter
+\ExplSyntaxOn
+\cs_new:Npn \white_text:n #1
+  {
+    \fp_set:Nn \l_tmpa_fp {#1 * .01}
+    \llap{\textcolor{white}{\the\SOUL@syllable}\hspace{\fp_to_decimal:N \l_tmpa_fp em}}
+    \llap{\textcolor{white}{\the\SOUL@syllable}\hspace{-\fp_to_decimal:N \l_tmpa_fp em}}
+  }
+\NewDocumentCommand{\whiten}{ m }
+    {
+      \int_step_function:nnnN {1}{1}{#1} \white_text:n
+    }
+\ExplSyntaxOff
+
+\NewDocumentCommand{ \varul }{ D<>{5} O{0.2ex} O{0.1ex} +m } {%
+\begingroup
+\setul{#2}{#3}%
+\def\SOUL@uleverysyllable{%
+   \setbox0=\hbox{\the\SOUL@syllable}%
+   \ifdim\dp0>\z@
+      \SOUL@ulunderline{\phantom{\the\SOUL@syllable}}%
+      \whiten{#1}%
+      \llap{%
+        \the\SOUL@syllable
+        \SOUL@setkern\SOUL@charkern
+      }%
+   \else
+       \SOUL@ulunderline{%
+         \the\SOUL@syllable
+         \SOUL@setkern\SOUL@charkern
+       }%
+   \fi}%
+    \ul{#4}%
+\endgroup
+}
+\makeatother
+
+\newcommand{\intexthighlight}[1]{\varul<10>[0.2ex][0.1ex]{#1}}
+
+\title{Spatial models: background and open problems}
+\author{}
+\date{}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\usepackage{titlesec}
+\titlespacing{\section}{0pt}{\parskip}{0pt}
+\titlespacing{\subsection}{0pt}{\parskip}{0pt}
+\titlespacing{\subsubsection}{0pt}{\parskip}{0pt}
+\usepackage[letterpaper, margin=1in]{geometry}
+% \usepackage[hide=false,setmargin=true,marginparwidth=0.75in]{marginalia}
+
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\newpage
+
+\section{Example: binomial geostatistical regression}
+
+\subsection{Model}
+
+Several authors \citep{loaloa,geostatsp,prevmap} have considered a dataset containing 
+counts of subjects who tested positive for a tropical
+disease caused by the \emph{Loa loa} parasitic roundworm in $n = 190$
+villages in Cameroon and Nigeria. The goal is to model the spatial variation in
+the probability of infection. For village $i\in\{1,\ldots,n\}$ let $0\leq Y_{i}\leq N_{i}\in\Nats$ denote the number 
+of infected and total number of residents, and $\mb{s}_{i}\in\Reals^{2}$ denote its spatial location.
+Let $p(\mb{s})$ denote the probability of infection at location $\mb{s}\in\Reals^{2}$. The model is:
+\begin{equation}\begin{aligned}
+Y_{i} | p(\mb{s}_{i}) &\overset{ind}{\sim}\text{Binomial}\{N_{i},p(\mb{s}_{i})\}, \\
+\log\left\{\frac{p(\mb{s})}{1-p(\mb{s})}\right\} &= \beta_{0} + \mb{x}(\mb{s})\Tr\mb{\beta} + u(\boldsymbol{s}), \mb{s}\in\Reals^{2}, \\
+u(\cdot) | \boldsymbol{\mb{\xi}} &\sim \mathcal{GP}(0,\text{C}_{\boldsymbol{\xi}}). \\
+\end{aligned}\end{equation} 
+The spatially-referenced covariates $\mb{x}(\mb{s}) = (x_1(\mb{s}),\ldots,x_d(\mb{s}))\Tr$ represent continuous elevation and an index of vegetation, and a categorical land type.
+The unknown process \(u(\cdot)\)
+governs excess spatial variation in logit infection risk, and is
+modelled as a Gaussian Process with Matern
+covariance function $\text{Cov}\{u(\mb{s}+\mb{h}),u(\mb{s})\} = \text{C}_{\boldsymbol{\xi}}(\norm{\mb{h}}), \mb{s},\mb{h}\in\Reals^{2}$
+depending on parameters $\boldsymbol{\xi} = (\sigma,\rho)\Tr$. 
+These are interpreted physically as the ``marginal standard deviation'' and ``practical correlation range''; see \citet{geostatsp}.
+The primary goal is to make point and interval predictions of $u(\cdot)$ having observed $\mb{Y} = (Y_1,\ldots,Y_n)\Tr$.
+This ``excess spatial variation'' is interpreted as the spatial variability in the probability of disease that remains unexplained by the available covariates and can guide investigators/policy makers about where to target resources for prevention, for example.
+
+\subsection{Data}
+
+Figure \ref{fig:loaloapoint} shows the locations and observed prevalences $Y_i/N_i$ of the \texttt{loaloa} data.
+Let $A\subset\Reals^2$ represent the longitude (x) and latitude (y) region plotted in Figure \ref{fig:loaloapoint}.
+The goal of model fitting is to produce maps of $p(\mb{s})$ and $u(\mb{s})$ for any $\mb{s}\in A$. 
+
+Figures \ref{fig:loaloaelevation}, \ref{fig:loaloaevi}, and \ref{fig:loaloalt} show the available covariates.
+
+\begin{figure}
+  \centering
+  \includegraphics[width = \plotwidth, height = \plotheight]{figures/loaloa-points.pdf}
+  \caption{Loaloa prevalence in Nigeria and Cameroon. Points show locations of villages, sizes are proportional to observed prevalance rate $Y_i/N_i$.}
+  \label{fig:loaloapoint}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \includegraphics[width = \plotwidth, height = \plotheight]{figures/loaloa-elevation.pdf}
+  \caption{Elevation covariate.}
+  \label{fig:loaloaelevation}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \includegraphics[width = \plotwidth, height = \plotheight]{figures/loaloa-evi.pdf}
+  \caption{Vegetation index covariate.}
+  \label{fig:loaloaevi}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \includegraphics[width = \plotwidth, height = \plotheight]{figures/loaloa-lt.pdf}
+  \caption{Land type covariate.}
+  \label{fig:loaloalt}
+\end{figure}
+
+\subsection{Results}
+
+The model can be fit using the R-INLA package. The easiest way to do this without access to any of the underlying details
+is to use Patrick Brown's \texttt{geostatsp} package; see the \texttt{R} file.
+This produces estimates $\widehat{u}(\cdot)$ of $u(\cdot)$ and hence $\widehat{p}(\cdot)$ of $p(\cdot)$;
+technically it returns posterior modes/means and $2.5\%$ and $97.5\%$ percentiles.
+The \texttt{geostatsp::glgm} function summarizes these on a grid and saves them as rasters which can be plotted.
+Figures \ref{fig:loaloaumode} -- \ref{fig:loaloaplower} show the results.
+
+\begin{figure}
+  \centering
+  \includegraphics[width = \plotwidth, height = \plotheight]{figures/loaloa-u-mode.pdf}
+  \caption{Posterior mode $\widehat{u}(\cdot)$ of the excess spatial variation $u(\cdot)$.}
+  \label{fig:loaloaumode}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \includegraphics[width = \plotwidth, height = \plotheight]{figures/loaloa-u-upperquant.pdf}
+  \caption{Posterior $97.5\%$ile $\widehat{u}(\cdot)$ of the excess spatial variation $u(\cdot)$.}
+  \label{fig:loaloauupper}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \includegraphics[width = \plotwidth, height = \plotheight]{figures/loaloa-u-lowerquant.pdf}
+  \caption{Posterior $2.5\%$ile $\widehat{u}(\cdot)$ of the excess spatial variation $u(\cdot)$.}
+  \label{fig:loaloaulower}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \includegraphics[width = \plotwidth, height = \plotheight]{figures/loaloa-p-mode.pdf}
+  \caption{Posterior mode $\widehat{p}(\cdot)$ of the predicted prevalence $p(\cdot)$.}
+  \label{fig:loaloapmode}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \includegraphics[width = \plotwidth, height = \plotheight]{figures/loaloa-p-upperquant.pdf}
+  \caption{Posterior $97.5\%$ile $\widehat{p}(\cdot)$ of the predicted prevalence $p(\cdot)$.}
+  \label{fig:loaloapupper}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \includegraphics[width = \plotwidth, height = \plotheight]{figures/loaloa-p-lowerquant.pdf}
+  \caption{Posterior $2.5\%$ile $\widehat{p}(\cdot)$ of the predicted prevalence $p(\cdot)$.}
+  \label{fig:loaloaplower}
+\end{figure}
+
+\section{Details}
+
+\subsection{Background}
+
+This type of analysis is performed and reported all the time with about this much detail.
+Here are the details. Let $\params = (\mb{\beta}\Tr, \mb{\xi}\Tr)\Tr$.
+In principle, we seek the posterior distribution of $u(\cdot)|\response$.
+This is going to require two main ingredients:
+\begin{enumerate}
+  \item A \textbf{discretization} $\mb{\omega}\in\Reals^m, m\in\Nats$ of the continuous stochastic process $u(\cdot)$ such that for 
+  any $\mb{s}\in\Reals^2$ there exists some $j\in\{1,\ldots,m\}$ such that $\omega_j \approx u(\mb{s})$ in some sense.
+  \item An \textbf{approximation} to the (intractable) posterior distribution of $\mb{\omega}|\response$ where $\response = (y_1,\ldots,y_n)\Tr\in\Reals^n$ are the observed data.
+\end{enumerate}
+The details are given below. \textbf{One open problem is to determine the asymptotic approximation error in} $u(\cdot)|\response$ \textbf{as a function of} $m$ \textbf{and} $n$, although \citet{sanz2022finite} provides one perspective.
+The manner in which I currently see this being done is by extending the analyses of \citet{bilodeau2024stochastic,stringer2022asymptotics}
+such that the regularity conditions accommodate spatial models using the ``SPDE'' discretization of \citet{spde,sanz2022finite}.
+
+\subsection{Using the observed $\mb{s}$ values}
+
+Recall that $u(\cdot)$ is a zero-mean stationary Gaussian process, so it has the property that for any realization $\mb{s}_1,\ldots,\mb{s}_m, m\in\Nats$,
+$(u(\mb{s}_1),\ldots,u(\mb{s}_m))\Tr$ jointly follows a Gaussian distribution with covariance matrix $\Sigma$ determined by $\Sigma_{ij} = C_{\mb{\xi}}(\norm{\mb{s}_{i} - \mb{s}_{j}})$.
+Since $u(\cdot)$ is a continuous stochastic process, in practice (i.e. when analyzing data on a computer) we do not work with its
+posterior distribution, but rather a posterior distribution of some suitable discretization of the process.
+The most obvious choice is to infer the posterior distribution of
+$$
+\mb{\omega}_n = (u(\mb{s}_1),\ldots,u(\mb{s}_n))\Tr,
+$$
+where $\mb{s}_1,\ldots,\mb{s}_n$ are the \emph{observed} locations, i.e. the points plotted in Figure \ref{fig:loaloapoint}.
+This ``discretization'' is conceptually straightforward but leads to a few challenges that render it practically infeasible:
+\begin{enumerate}
+  \item \textbf{Computational burden}: the precision (inverse covariance) matrix of $(u(\mb{s}_1),\ldots,u(\mb{s}_n))|\response$ in this 
+  setup is dense (all values may be nonzero), has no other known exploitable structure, and has dimension $n\times n$, leading to a memory cost that scales as $O(n^2)$ to store it and a computational cost (number of floating point operations) that scales as $O(n^3)$ to decompose it; this renders inference inconvenient for $n$ beyond a few hundred and impossible for $n$ beyond a few thousand even on big computers.
+  \item \textbf{Numerical instability}: as $n$ increases but the spatial domain $A\subset\Reals^2$ stays fixed, the $\mb{s}_i$ will tend
+  to be close to each other. Consequently, while the rank of $\Sigma$ stays equal to $n$ mathematically/theoretically, numerically the matrix $\Sigma$ becomes ill-conditioned (condition number---ratio of smallest to largest singular values---very small), leading to large finite-precision arithmetic errors in the output of the numerical linear algebra algorithms used for inference. This is actually the bigger problem; in practice, for ``usual'' datasets, this starts to give bad results/crash for $n$ in the hundreds.
+\end{enumerate}
+To mitigate these challenges, the current state-of-the-art approach is to use the stochastic partial differential equation (SPDE) approach to discretization of $u(\cdot)$.
+
+\subsection{SPDE Discretization}\label{subsec:spde}
+
+A Gaussian process is defined by its covariance function.
+The Matern covariance is almost always used in geospatial/geostatistical models; see \citet[Appendix A]{geostatsp} for explicit details.
+Where does the Matern covariance come from?
+It can be shown (not by me, but maybe by you!) that the solution, $u(\cdot)$, to the SPDE
+\begin{equation}\label{eqn:maternspde}
+(\kappa^2 - \Delta)^{\alpha/2}u(\mb{s}) = W(\mb{s}), \alpha = \nu + d/2, d = \text{dim}(\mb{s}) = 2, \kappa > 0, \nu > 0,
+\end{equation}
+is a Gaussian process with Matern covariance function. 
+Here $W(\cdot)$ is white noise in $\Reals^d$, $d=2$, and
+$$
+\Delta = \sum_{i=1}^{d}\frac{\partial^2}{\partial s_i^2}
+$$
+is the Laplacian.
+See \citet[Eq. (1), (2), and (4)]{spde} and note that there might be
+slight differences between \citet{spde} and \citet{geostatsp}.
+
+Since the exact solution to Eq. (\ref{eqn:maternspde}) has been known since the 1960's, the relevance of this characterization
+to geostatistical practice was not appreciated for some time; everyone just used the formula for the covariance function that solves (\ref{eqn:maternspde}).
+\citet{spde}, however, made the controversial suggestion that---despite knowing the \emph{exact} answer to (\ref{eqn:maternspde})---
+computations be based on an \emph{approximation} to it. To this end, the finite element method/Galerkin approximation is applied
+to approximate the solution to (\ref{eqn:maternspde}); see \citet{spde} for the original construction, \citet{miller2020understanding}
+for a (very) clear explanation, and \citet{zhang2024model} for a recent application by a PhD student at Toronto with me and our mutual supervisors. 
+
+The relevant details are as follows. Define a partition of $A\subset\Reals^2$ with $m\in\Nats$ regions $A_{j},j=1,\ldots,m$.
+This can be a rectangular grid, but triangles are preferred by the numerical analysis folks; see \citet{simpson2016going} for relevance to geostatistics.
+A discretization $\mb{\omega} = (\omega_1,\ldots,\omega_m)\Tr$ of $u(\cdot)$ onto $A_1,\ldots,A_m$ is given by applying the finite element method to approximate (\ref{eqn:maternspde}) n $A_1,\ldots,A_m$.
+Since the $A_j$ partition $A$, for any $\mb{s}\in\Reals^2$ there exists some $j$ such that $u(\mb{s})\approx\omega_j$.
+(The specific meaning of ``$\approx$'' depends on the convergence perspective taken.)
+Inferences about $u(\cdot)$ are made by making inferences about $\mb{\omega}$ and then replacing $u(\cdot)$ by $\mb{\omega}$
+in all reported summaries. Figures \ref{fig:loaloaumode} -- \ref{fig:loaloaulower} show posterior summaries of $\mb{\omega}$
+for the \texttt{Loaloa} example.
+
+This approach addresses both challenges:
+\begin{enumerate}
+  \item The mechanics of the approximation guarantee that the precision matrix of $\omega_1,\ldots,\omega_m$ is \emph{sparse}, meaning only $O(m)$ of its $n^2$ values may be nonzero.
+  This reduces the computational complexity of storage and decomposition to $O(m)$ from $O(n^3)$, a huge reduction and more importantly one that is user-controlled–- the user can pick the $m$ that their computer can handle, explicitly trading accuracy for speed.
+  \item The partition $A_1,\ldots,A_m$ can be formed in such a manner as to avoid numerical instability, e.g. by keeping the distances between the centroids of the $A_j$ relatively uniform; see \citet{simpson2016going} for a treatment.
+\end{enumerate}
+
+There is numerical convergence theory about the accuracy of the discretization as $m\to\infty$; see \citet{spde}.
+To my knowledge, there is not much satistical convergence theory about the accuracy of the posterior $\mb{\omega}|\response$
+as an approximation to the posterior $u(\cdot)|\response$; \citet{sanz2022finite} is the only paper I've seen.
+
+\subsection{Posterior approximation: Laplace approximation}\label{subsec:laplace}
+
+I use $\pi(\cdot)$ and $\pi(\cdot|\cdot)$ to represent marginal and conditional densities.
+The posterior density of $\mb{\omega}|\response$ is:
+\begin{equation}\label{eqn:posterior}
+\pi(\mb{\omega}|\response) = \frac{\pi(\response|\mb{\omega})\pi(\mb{\omega})}{\pi(\response)}.
+\end{equation}
+The numerator is tractable: $\pi(\mb{\omega})$ is Gaussian with covariance matrix determined by the SPDE approximation;
+$\pi(\response|\mb{\omega})$ is the likelihood, Binomial in the \texttt{loaloa} example.
+The denominator,
+\begin{equation}\label{eqn:normconst}
+\pi(\response) = \int\pi(\response|\mb{\omega})\pi(\mb{\omega})d\mb{\omega},
+\end{equation}
+is an intractable integral of dimension $m$, which is generally moderate (dozens) to large (hundreds -- thousands).
+Further, while I'm not sure the degree to which this has been formally worked out, it will plausibly be the case 
+that $m$ will have to increase with $n$ at some rate in order for the discretization error to go to zero-- this is the
+case with spline models \citep{kauermann2009some} which are very closely related to spatial models and SPDE discretization \citep{miller2020understanding}. So, we can regard (\ref{eqn:normconst}) as being a \emph{high-dimensional} integral, in the specific sense
+that it is an integral over a parameter whose dimension $m$, increases as more data, $n$, are obtained. This dramatically
+complicates convergence theory for approximations to this integral.
+
+Monte Carlo methods for (\ref{eqn:normconst}) are well studied in spatial problems, and are generally disfavoured for being slow
+and challenging to implement well. The status quo is to use the Laplace approximation to (\ref{eqn:normconst}).
+Let $\ell(\mb{\omega};\response) = -\log\pi(\response|\mb{\omega})\pi(\mb{\omega})$ so $\pi(\response) = \int\exp\left\{-\ell(\mb{\omega};\response)\right\}d\mb{\omega}$.
+Let $\widehat{\mb{\omega}} = \text{argmin}_{\mb{\omega}}\ell(\mb{\omega};\response)$ and $\widehat{\mb{H}} = \partial^2_{\mb{\omega}\mb{\omega}\Tr}\ell(\widehat{\mb{\omega}};\response)$.
+The Laplace approximation to $\pi(\response)$ is
+\begin{equation}\label{eqn:laplace}
+\widetilde{\pi}(\response) = (2\pi)^{m/2}\lvert\widehat{\mb{H}}\rvert^{-1/2}\exp\left\{-\ell(\widehat{\mb{\omega}};\response)\right\}.
+\end{equation}
+The approximation is obtained via second-order Taylor expansion of $\ell(\mb{\omega};\response)$ at $\widehat{\mb{\omega}}$.
+Under ``classical'' regularity conditions (which exclude $m$ increasing with $n$ and exclude spatial models) the error is $O_p(n^{-1/2})$
+independent of $m$; see \citet[Theorem 1]{bilodeau2024stochastic} for the precise statement and the appendix of that paper for precise
+conditions. Work on the high dimensional case includes \citet{shun1995laplace} and \citet{tang2024highdim}.
+
+To my knowledge, it would be a \textbf{novel contribution} to come up with regularity conditions that include spatial SPDE models
+under which Theorem 1 of \citet{bilodeau2024stochastic} can be applied to convergence of (\ref{eqn:laplace}).
+
+\subsection{Posterior approximation: integrated nested Laplace approximation}\label{subsec:inla}
+
+There are two further practical considerations not covered by the basic Laplace approximation:
+\begin{enumerate}
+  \item We also have unknown parameters, $\params$, that either need to be inferred or at least accounted for,
+  \item A high-dimensional joint posterior is not a useful object on its own; what we actually want are marginal posterior summaries, such as moments and quantiles of $\omega_j$ for any $j$. This requires further approximation(s).
+\end{enumerate}
+Neither problem occurs when using Monte Carlo methods to sample from posteriors. If you had a sample from the joint posterior of $(\mb{\omega},\params)|\response$, you can just use sample estimates of any desired posterior summary. That this is even a challenge worth mentioning
+is unique to the use of non-sample-based approximate Bayesian inference methods.
+
+The Integrated Nested Laplace Approximation (INLA) was introduced in the seminal work of \citet{rue2009approximate}.
+The explanation there is quite complicated with computational and methodological details intermixed. Ignoring the computational
+details (which were the primary contribution of the work), the basic approximations aren't too hard to write down.
+The parameters are now $(\mb{\omega},\params)$ with posterior
+$$
+\pi(\mb{\omega},\params|\response) = \frac{\pi(\response|\mb{\omega},\params)\pi(\mb{\omega}|\params)\pi(\params)}{\pi(\response)},
+$$
+and interest lies in the \emph{marginal} posteriors
+\begin{align}\label{eqn:margpost}
+\pi(\omega_j | \response) &= \int\pi(\mb{\omega},\params|\response)d\mb{\omega}_{-j}d\params, j = 1,\ldots,m,\\
+\pi(\theta_l | \response) &= \int\pi(\mb{\omega},\params|\response)d\mb{\omega}d\params_{-l}, l = 1,\ldots,p=\text{dim}(\params). \\
+\end{align}
+All of these integrals are also intractable and require further approximation. The INLA method gives a computationally feasible
+way to compute the Laplace approximations to $\pi(\omega_j | \response)$ (we'll ignore $\pi(\theta_l | \response)$) for now.
+Once an approxiation to $\pi(\omega_j | \response)$ is obtained, summaries such as means and quantiles can be easily approximated
+to high numerical accuracy using any integration rule, e.g. the trapezoid rule; it is not expected that this final approximation step 
+will introduce meaningful error. Indeed, see \citet{bilodeau2024stochastic} for a discussion with details in the supplement.
+
+INLA is used widely for spatial statistics, with around 10 books, dozens of followup papers, thousands of citations, and countless
+web tutorials, workshops, and so forth dedicated to its use. \textbf{Nobody has formally analyzed its convergence behaviour}.
+In my thesis work \citep{stringer2023fast} I provide a theorem that applies only to a simplified version of INLA and under very
+restrictive conditions that definitely rule out spatial models.
+
+\section{Open problem(s)}
+
+Several open problems are identified from the above; these will need to be refined and the literature investigated to crystalize
+them into a proposed thesis for your NSERC application:
+\begin{enumerate}
+  \item Convergence of the SPDE posterior approximation (\S\ref{subsec:spde}),
+  \item Convergence of the Laplace approximation to the posterior of the SPDE discretization (\S\ref{subsec:laplace}),
+  \item Convergence of INLA for spatial SPDE models (\S\ref{subsec:inla}).
+\end{enumerate}
+Overall, the quantifying the error in using an approximation to $\pi(\mb{\omega}|\response)$ or $\pi(\omega_j|\response)$ as an approximation of $\pi(u(\cdot)|\response)$ in terms of $m$ and $n$ would be a substantial contribution to the theory of geostatistical practice.
+
+
+\bibliographystyle{apalike}
+\bibliography{spatial-background.bib}
+
+\end{document}
